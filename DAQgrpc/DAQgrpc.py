@@ -73,18 +73,24 @@ try:
     # --- Real-time Plotting Setup ---
     plt.ion()
     fig, ax = plt.subplots()
-    x = np.arange(1000)
+    max_points = 5000  # Adjust for longer history
+    time_data = np.zeros(max_points)
+    voltage_data = [np.zeros(max_points) for _ in range(number_of_channels)]
     lines = []
     for ch in range(number_of_channels):
-        line, = ax.plot(x, np.zeros_like(x), label=f"Channel {ch}")
+        line, = ax.plot(time_data, voltage_data[ch], label=f"Channel {ch}")
         lines.append(line)
     ax.set_title("Live Plot - Analog Input")
-    ax.set_xlabel("Sample Index")
+    ax.set_xlabel("Time (s)")
     ax.set_ylabel("Voltage (V)")
+    ax.set_ylim(-10, 10)  # Freeze y-axis
     ax.legend()
     plt.show()
 
     print("Press Ctrl+C to stop...")
+    start_time = time.time()
+    current_index = 0
+
     while True:
         read_response = client.ReadAnalogF64(
             nidaqmx_types.ReadAnalogF64Request(
@@ -95,13 +101,23 @@ try:
                 timeout=10.0,
             )
         )
+        elapsed_time = time.time() - start_time
+        timestamps = np.linspace(elapsed_time, elapsed_time + 0.1, 1000)  # 0.1s for 1000 samples at 10kHz
         data = np.array(read_response.read_array)
         data = data.reshape((number_of_channels, read_response.samps_per_chan_read))
 
+        # Append and clip data
         for ch in range(number_of_channels):
-            lines[ch].set_ydata(data[ch])
-        ax.relim()
-        ax.autoscale_view()
+            voltage_data[ch] = np.roll(voltage_data[ch], -1000)
+            voltage_data[ch][-1000:] = data[ch]
+        time_data = np.roll(time_data, -1000)
+        time_data[-1000:] = timestamps
+
+        for ch in range(number_of_channels):
+            lines[ch].set_xdata(time_data)
+            lines[ch].set_ydata(voltage_data[ch])
+
+        ax.set_xlim(time_data[0], time_data[-1])
         fig.canvas.draw()
         fig.canvas.flush_events()
         plt.pause(0.001)
