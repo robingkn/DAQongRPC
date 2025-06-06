@@ -42,6 +42,7 @@
     </Interpreter>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="functions_available.txt" />
     <Content Include="ReadMe.txt" />
     <Content Include="requirements.txt" />
   </ItemGroup>
